@@ -1,1 +1,131 @@
-# MyStudyApp
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyHub - My Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .view { display: none; flex: 1; overflow-y: auto; padding-bottom: 100px; }
+        .active { display: block; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; max-width: 448px; background: #1e293b; display: flex; border-top: 1px solid #334155; height: 70px; z-index: 100; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; opacity: 0.6; }
+        .selected { opacity: 1; color: #3b82f6; border-top: 3px solid #3b82f6; }
+        .card { background: #1e293b; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 5px solid #3b82f6; position: relative; }
+        .del-btn { color: #ff4444; font-size: 10px; cursor: pointer; position: absolute; top: 8px; right: 10px; }
+    </style>
+</head>
+<body class="max-w-md mx-auto relative bg-slate-900 shadow-2xl">
+
+    <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-blue-400">StudyHub Pro</h1>
+    </header>
+
+    <div id="studyView" class="view active p-5">
+        <h2 class="text-lg font-bold mb-3">📝 My Notes/Diary</h2>
+        <div class="bg-slate-800 p-4 rounded-xl mb-4 border border-slate-700">
+            <input id="noteTitle" type="text" placeholder="নোটের শিরোনাম" class="w-full p-2 mb-2 rounded bg-slate-900 border border-slate-700 text-sm">
+            <textarea id="noteBody" placeholder="এখানে বিস্তারিত লিখুন..." class="w-full p-2 h-20 rounded bg-slate-900 border border-slate-700 text-sm"></textarea>
+            <button onclick="saveNote()" class="w-full bg-blue-600 py-2 rounded mt-2 font-bold">সেভ নোট</button>
+        </div>
+        <div id="noteList"></div>
+    </div>
+
+    <div id="videoView" class="view p-5">
+        <h2 class="text-lg font-bold mb-3">🎬 My Video Files</h2>
+        <div class="rounded-xl overflow-hidden shadow-2xl border border-slate-700 mb-5 bg-black">
+            <iframe id="mainPlayer" class="w-full aspect-video" src="" frameborder="0" allowfullscreen></iframe>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl mb-4 border border-slate-700">
+            <input id="vTitle" type="text" placeholder="ভিডিওর নাম (উদা: Math Class)" class="w-full p-2 mb-2 rounded bg-slate-900 border border-slate-700 text-sm">
+            <input id="vLink" type="text" placeholder="YouTube লিঙ্ক পেস্ট করুন" class="w-full p-2 mb-2 rounded bg-slate-900 border border-slate-700 text-sm">
+            <button onclick="saveVideo()" class="w-full bg-red-600 py-2 rounded font-bold">ভিডিও ফাইল তৈরি করুন</button>
+        </div>
+        <div id="videoList"></div>
+    </div>
+
+    <div id="chatView" class="view">
+        <h2 class="text-lg font-bold p-5">💬 Group Chat</h2>
+        <div id="chatList" class="flex flex-col mb-20 px-4"></div>
+        <div class="fixed bottom-[70px] left-0 right-0 max-w-md mx-auto p-3 bg-slate-800 border-t border-slate-700 flex gap-2">
+            <input id="uName" type="text" placeholder="নাম" class="w-16 p-2 rounded bg-slate-900 text-xs">
+            <input id="uMsg" type="text" placeholder="মেসেজ..." class="flex-1 p-2 rounded bg-slate-900">
+            <button onclick="send()" class="bg-blue-600 px-4 rounded font-bold">পাঠান</button>
+        </div>
+    </div>
+
+    <nav class="nav-bar">
+        <div onclick="tab('studyView', this)" class="nav-item selected"><span>📚</span>Study</div>
+        <div onclick="tab('videoView', this)" class="nav-item"><span>🎬</span>Video</div>
+        <div onclick="tab('chatView', this)" class="nav-item"><span>💬</span>Chat</div>
+    </nav>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAADGX648OJ1xnGAFyFKqPoaiI8I8IqVv0",
+            databaseURL: "https://mystudyapp-bc5ba-default-rtdb.firebaseio.com",
+            projectId: "mystudyapp-bc5ba",
+            appId: "1:71123797002:web:2a5ed10df0985b67334bf3"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- Note Logic ---
+        window.saveNote = () => {
+            const title = document.getElementById('noteTitle').value;
+            const body = document.getElementById('noteBody').value;
+            if(title && body) push(ref(db, 'notes'), { title, body });
+            document.getElementById('noteTitle').value = ""; document.getElementById('noteBody').value = "";
+        };
+        onValue(ref(db, 'notes'), (s) => {
+            const list = document.getElementById('noteList'); list.innerHTML = "";
+            s.forEach(c => {
+                const d = c.val();
+                list.innerHTML += `<div class="card"><span class="del-btn" onclick="del('notes/${c.key}')">✖</span><h3 class="font-bold text-blue-400">${d.title}</h3><p class="text-sm opacity-80 mt-1">${d.body}</p></div>`;
+            });
+        });
+
+        // --- Video Logic ---
+        window.saveVideo = () => {
+            const title = document.getElementById('vTitle').value;
+            const link = document.getElementById('vLink').value;
+            if(title && link) {
+                let vid = link.split('v=')[1] || link.split('/').pop();
+                if(vid.includes('&')) vid = vid.split('&')[0];
+                push(ref(db, 'videos'), { title, vid });
+                document.getElementById('vTitle').value = ""; document.getElementById('vLink').value = "";
+            }
+        };
+        onValue(ref(db, 'videos'), (s) => {
+            const list = document.getElementById('videoList'); list.innerHTML = "";
+            s.forEach(c => {
+                const d = c.val();
+                list.innerHTML += `<div class="card cursor-pointer" onclick="play('${d.vid}')"><span class="del-btn" onclick="event.stopPropagation(); del('videos/${c.key}')">✖</span><h3 class="font-bold text-red-400">🎥 ${d.title}</h3></div>`;
+            });
+        });
+        window.play = (id) => { document.getElementById('mainPlayer').src = `https://www.youtube.com/embed/${id}?autoplay=1`; };
+
+        // --- Global Helpers ---
+        window.del = (path) => { if(confirm("ডিলিট করতে চান?")) remove(ref(db, path)); };
+        window.tab = (id, el) => {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('selected'));
+            document.getElementById(id).classList.add('active'); el.classList.add('selected');
+        };
+        window.send = () => {
+            const n = document.getElementById('uName').value; const m = document.getElementById('uMsg').value;
+            if(n && m) push(ref(db, 'chat'), { n, m }); document.getElementById('uMsg').value = "";
+        };
+        onValue(ref(db, 'chat'), (s) => {
+            const list = document.getElementById('chatList'); list.innerHTML = "";
+            s.forEach(c => { const d = c.val(); list.innerHTML += `<div class="bg-slate-800 p-2 rounded mb-2 text-sm"><b>${d.n}:</b> ${d.m}</div>`; });
+        });
+    </script>
+</body>
+  </html>
+  
